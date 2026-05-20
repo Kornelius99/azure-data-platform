@@ -1,0 +1,5 @@
+pandas
+numpy
+pyspark
+azure-storage-blob
+delta-spark
