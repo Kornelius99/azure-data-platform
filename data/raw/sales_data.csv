@@ -1,0 +1,11 @@
+order_id,customer_id,order_date,region,product_category,product_name,quantity,unit_price,total_amount,payment_method
+1001,C001,2025-01-05,London,Electronics,Laptop,1,850,850,Credit Card
+1002,C002,2025-01-06,Manchester,Electronics,Monitor,2,180,360,Debit Card
+1003,C003,2025-01-07,Birmingham,Furniture,Office Chair,1,120,120,PayPal
+1004,C004,2025-01-08,Leeds,Office Supplies,Notebook,10,3,30,Credit Card
+1005,C005,2025-01-09,London,Electronics,Keyboard,3,25,75,Debit Card
+1006,C006,2025-01-10,Liverpool,Furniture,Desk,1,250,250,Credit Card
+1007,C007,2025-01-11,Bristol,Office Supplies,Pen Pack,5,4,20,PayPal
+1008,C008,2025-01-12,Manchester,Electronics,Mouse,4,15,60,Debit Card
+1009,C009,2025-01-13,London,Furniture,Bookshelf,1,180,180,Credit Card
+1010,C010,2025-01-14,Leeds,Electronics,Headphones,2,45,90,PayPal
