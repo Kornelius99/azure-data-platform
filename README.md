@@ -7,6 +7,12 @@ The goal is to showcase production-style data engineering skills including inges
 
 ## Architecture
 ![Architecture Diagram](docs/Architecture.png)
+
+## Power BI Dashboard
+
+![Power BI Dashboard](docs/powerbi-dashboard.png)
+
+
 ```
 CSV Source
    ↓
@@ -81,9 +87,6 @@ The PySpark ETL pipeline performs:
 6. Remove invalid records
 7. Add load timestamp
 8. Write processed data to Delta format
-## Power BI Dashboard
-
-![Power BI Dashboard](docs/powerbi-dashboard.png)
 
 ## Status
 In progress — portfolio project for Senior Data Engineer roles.
