@@ -10,7 +10,7 @@ The goal is to showcase production-style data engineering skills including inges
 
 ## Power BI Dashboard
 
-![Power BI Dashboard](docs/powerbi-dashboard.png)
+![Power BI Dashboard](powerbi/powerbi-dashboard.png)
 
 
 ```
