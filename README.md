@@ -6,7 +6,7 @@ This project demonstrates an end-to-end cloud data engineering pipeline using Az
 The goal is to showcase production-style data engineering skills including ingestion, transformation, validation, and loading into an analytics-ready data layer.
 
 ## Architecture
-docs/Architecture.png
+![Architecture Diagram](docs/Architecture.png)
 ```
 CSV Source
    ↓
