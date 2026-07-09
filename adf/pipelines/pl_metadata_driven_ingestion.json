@@ -1,0 +1,104 @@
+{
+  "name": "pl_metadata_driven_ingestion",
+  "properties": {
+    "description": "Metadata-driven ingestion pipeline. Reads an active entity list from a control table, iterates over each entity, copies source data into ADLS Gen2 raw zone, then triggers the Databricks medallion notebook for that entity. On failure, sends an alert via a Web activity.",
+    "parameters": {
+      "control_table_name": {
+        "type": "string",
+        "defaultValue": "dbo.pipeline_control"
+      },
+      "environment": {
+        "type": "string",
+        "defaultValue": "dev"
+      }
+    },
+    "activities": [
+      {
+        "name": "LookupActiveEntities",
+        "type": "Lookup",
+        "typeProperties": {
+          "source": {
+            "type": "AzureSqlSource",
+            "sqlReaderQuery": "SELECT entity_name, source_type, source_object, sink_container, watermark_column, is_active FROM @{pipeline().parameters.control_table_name} WHERE is_active = 1"
+          },
+          "dataset": {
+            "referenceName": "ds_control_table",
+            "type": "DatasetReference"
+          },
+          "firstRowOnly": false
+        }
+      },
+      {
+        "name": "ForEachEntity",
+        "type": "ForEach",
+        "dependsOn": [
+          { "activity": "LookupActiveEntities", "dependencyConditions": ["Succeeded"] }
+        ],
+        "typeProperties": {
+          "items": "@activity('LookupActiveEntities').output.value",
+          "isSequential": false,
+          "batchCount": 8,
+          "activities": [
+            {
+              "name": "CopyEntityToRawZone",
+              "type": "Copy",
+              "typeProperties": {
+                "source": { "type": "AzureSqlSource" },
+                "sink": { "type": "DelimitedTextSink", "storeSettings": { "type": "AzureBlobFSWriteSettings" } },
+                "enableStaging": false
+              },
+              "inputs": [
+                { "referenceName": "ds_source_generic", "type": "DatasetReference",
+                  "parameters": { "object_name": "@item().source_object" } }
+              ],
+              "outputs": [
+                { "referenceName": "ds_adls_raw", "type": "DatasetReference",
+                  "parameters": {
+                    "container": "@item().sink_container",
+                    "entity": "@item().entity_name",
+                    "run_date": "@formatDateTime(utcnow(), 'yyyy-MM-dd')"
+                  } }
+              ]
+            },
+            {
+              "name": "TriggerDatabricksMedallionNotebook",
+              "type": "DatabricksNotebook",
+              "dependsOn": [
+                { "activity": "CopyEntityToRawZone", "dependencyConditions": ["Succeeded"] }
+              ],
+              "typeProperties": {
+                "notebookPath": "/Repos/data-platform/notebooks/databricks_medallion_pipeline",
+                "baseParameters": {
+                  "source_path": "@concat('/mnt/raw/', item().sink_container, '/', item().entity_name, '/')",
+                  "bronze_path": "@concat('/mnt/bronze/', item().entity_name)",
+                  "silver_path": "@concat('/mnt/silver/', item().entity_name)",
+                  "gold_path": "@concat('/mnt/gold/', item().entity_name, '_summary')",
+                  "batch_id": "@pipeline().RunId"
+                }
+              },
+              "linkedServiceName": { "referenceName": "ls_azure_databricks", "type": "LinkedServiceReference" }
+            }
+          ]
+        }
+      },
+      {
+        "name": "OnFailureAlert",
+        "type": "WebActivity",
+        "dependsOn": [
+          { "activity": "ForEachEntity", "dependencyConditions": ["Failed"] }
+        ],
+        "typeProperties": {
+          "url": "@pipeline().parameters.alert_webhook_url",
+          "method": "POST",
+          "body": {
+            "pipeline": "@pipeline().Pipeline",
+            "runId": "@pipeline().RunId",
+            "status": "Failed",
+            "environment": "@pipeline().parameters.environment"
+          }
+        }
+      }
+    ],
+    "annotations": ["metadata-driven", "medallion-architecture", "portfolio-project"]
+  }
+}
