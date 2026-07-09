@@ -1,189 +1,105 @@
-![Python](https://img.shields.io/badge/Python-Data_Engineering-blue)
-![PySpark](https://img.shields.io/badge/PySpark-Big_Data-orange)
-![Azure](https://img.shields.io/badge/Azure-Cloud-blue)
-![Databricks](https://img.shields.io/badge/Databricks-ETL-red)
-![PowerBI](https://img.shields.io/badge/PowerBI-Analytics-yellow)
-![DeltaLake](https://img.shields.io/badge/Delta_Lake-Lakehouse-green)
+# Azure Enterprise Lakehouse Platform
 
-# Azure Data Platform Project
+[![CI](https://github.com/Kornelius99/azure-data-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Kornelius99/azure-data-platform/actions/workflows/ci.yml)
 
-## Overview
-This project demonstrates an end-to-end Azure-style cloud data engineering pipeline using PySpark, Delta Lake, Azure architecture principles, and Power BI-ready data modelling.
+An end-to-end, production-style Azure data platform built around the medallion (bronze/silver/gold) lakehouse pattern. It demonstrates the full lifecycle a Senior Data Engineer owns in real enterprise environments: metadata-driven ingestion, PySpark/Delta Lake transformation on Databricks, a curated serving layer for BI, automated data quality checks, CI/CD, and infrastructure as code.
 
-The project showcases production-style data engineering concepts including:
-- ETL/ELT pipeline development
-- Data cleansing & transformation
-- Schema validation
-- Delta Lake processed layer
-- Analytics-ready reporting architecture
-- Cloud engineering repository structure
+## Why this project
 
-## Project Status
-✅ Active Portfolio Project  
-✅ Production-style Architecture  
-✅ PySpark ETL Pipeline  
-✅ Power BI Reporting Layer  
-
----
+Most portfolio ETL projects stop at "read a CSV, clean it, write a table." This one is built to mirror how a real Azure lakehouse platform is engineered day to day, including the parts that are easy to skip: orchestration, parameterisation, data quality gates, testing, and repeatable infrastructure.
 
 ## Architecture
 
-![Architecture Diagram](docs/Architecture.png)
-
-### Architecture Flow
-
-```text
-CSV Sales Data
-      ↓
-ADLS Gen2
-      ↓
-Azure Databricks (PySpark ETL/ELT)
-      ↓
-Delta Lake Processed Layer
-      ↓
-Power BI Analytics Dashboard
+```mermaid
+flowchart LR
+    A[Source Systems\nCSV / SQL / API] --> B[ADLS Gen2\nRaw / Landing Zone]
+    B --> C[Azure Data Factory\nMetadata-driven, parameterised pipelines]
+    C --> D[Azure Databricks\nPySpark + Delta Lake]
+    D --> D1[Bronze\nraw, append-only]
+    D1 --> D2[Silver\ncleansed, conformed, deduplicated]
+    D2 --> D3[Gold\nstar schema, business aggregates]
+    D3 --> E[Synapse Analytics\nServing layer / SQL views]
+    E --> F[Power BI\nDashboards & reporting]
+    C -. monitoring & failure alerts .-> G[Log Analytics / Alerts]
 ```
 
----
+**Flow summary:** ADF triggers metadata-driven Copy activities that land raw files into ADLS Gen2, then calls parameterised Databricks notebooks that promote data through bronze, silver and gold layers using PySpark and Delta Lake. Synapse exposes the gold layer as SQL views for Power BI. Every stage is monitored, with pipeline failures alerting the team. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the detailed design notes and [docs/DATA_QUALITY_FRAMEWORK.md](docs/DATA_QUALITY_FRAMEWORK.md) for the quality gate design.
 
-## Tech Stack
+## Tech stack
 
-- Azure Databricks
-- PySpark
-- Delta Lake
-- Azure Data Factory
-- ADLS Gen2
-- Power BI
-- Python
-- SQL Server
-- GitHub Actions
-- Docker
+- **Orchestration:** Azure Data Factory (parameterised, metadata-driven pipelines), scheduling & failure alerting
+- **Compute:** Azure Databricks, PySpark, Spark SQL
+- **Storage:** ADLS Gen2, Delta Lake (bronze / silver / gold)
+- **Serving:** Azure Synapse Analytics, Power BI
+- **Quality & testing:** custom PySpark data quality framework, PyTest
+- **DevOps:** GitHub Actions CI/CD, Terraform (IaC), Docker
+- **Languages:** Python, PySpark, SQL, HCL (Terraform), JSON (ADF ARM-style pipeline defs)
 
----
-
-## Key Features
-
-- Batch data ingestion from CSV
-- Schema inference
-- Data cleansing and deduplication
-- Data type casting
-- Data quality validation
-- Delta Lake processed layer
-- Analytics-ready reporting model
-- Production-style repository structure
-
----
-
-## Business Use Case
-
-This pipeline processes sales transaction data and prepares it for business analytics and reporting.
-
-The processed dataset supports:
-- Revenue analysis by region
-- Product category insights
-- Payment method analysis
-- Daily sales trends
-- Customer purchasing behaviour
-
----
-
-## Repository Structure
+## Repository structure
 
 ```text
 azure-data-platform/
-│
-├── data/
-│   ├── raw/
-│   └── processed/
-│
-├── notebooks/
-│
-├── pipelines/
-│   └── etl_pipeline.py
-│
+├── adf/                        # ADF pipeline/dataset definitions (metadata-driven ingestion)
+│   └── pipelines/
+├── notebooks/                  # Databricks notebooks: bronze -> silver -> gold
 ├── src/
-│   ├── ingestion/
-│   ├── transformation/
-│   └── loading/
-│
-├── tests/
-│
-├── docs/
-│   ├── Architecture.png
-│   └── powerbi-dashboard.png
-│
-├── powerbi/
-│
+│   ├── ingestion/               # ADLS readers / schema handling
+│   ├── transformation/          # Silver/gold transformation logic
+│   ├── loading/                 # Delta Lake writers (merge/upsert, partitioning)
+│   └── data_quality/            # Reusable PySpark data quality framework
+├── tests/                      # PyTest unit tests
+├── infra/terraform/             # Azure infrastructure as code
+├── .github/workflows/           # CI/CD pipeline
+├── docs/                       # Architecture & data quality documentation
+├── powerbi/                     # Power BI assets
 ├── requirements.txt
-├── .gitignore
 └── README.md
 ```
 
----
+## Medallion layers
 
-## Pipeline Logic
+- **Bronze** – raw, append-only ingestion from ADLS landing zone with ingestion metadata (source file, load timestamp, batch id) preserved for lineage and replay.
+- **Silver** – schema enforcement, deduplication, type casting, null/invalid record handling, and conformance to shared business definitions.
+- **Gold** – star-schema fact and dimension tables optimised for Power BI/Synapse consumption, with partitioning and Z-ORDER tuning applied to the largest fact tables.
 
-The PySpark ETL pipeline performs:
+## Data quality framework
 
-1. Extract raw sales data from CSV
-2. Infer schema automatically
-3. Remove duplicate records
-4. Parse and standardise dates
-5. Cast numeric fields
-6. Validate required columns
-7. Remove invalid records
-8. Add pipeline load timestamp
-9. Write processed data into Delta Lake format
+A reusable PySpark data quality module (`src/data_quality/checks.py`) runs completeness, uniqueness, referential integrity, and freshness checks at each layer boundary, producing a quality report that can gate downstream loads and feed lineage/governance documentation. See [docs/DATA_QUALITY_FRAMEWORK.md](docs/DATA_QUALITY_FRAMEWORK.md).
 
----
+## CI/CD
 
-## Power BI Dashboard
+GitHub Actions (`.github/workflows/ci.yml`) lints the codebase (flake8/black), runs the PyTest suite on every push and pull request, and is structured so a deployment job can be added to promote notebooks/pipelines to higher environments via Azure DevOps in a real deployment.
 
-![Power BI Dashboard](powerbi/powerbi-dashboard.png)
+## Infrastructure as code
 
-Dashboard includes:
-- Total Revenue KPI
-- Total Orders KPI
-- Customer Metrics
-- Revenue by Region
-- Product Category Analysis
-- Daily Sales Trends
-- Payment Method Insights
+`infra/terraform/main.tf` provisions the core Azure footprint for this platform: a resource group, an ADLS Gen2-enabled storage account, an Azure Data Factory instance, and an Azure Databricks workspace, so the environment is reproducible rather than click-ops.
 
----
+## Running locally
 
-## Engineering Concepts Demonstrated
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+pytest tests/ -v
+spark-submit notebooks/databricks_medallion_pipeline.py
+```
 
-- ETL/ELT pipeline design
-- Lakehouse architecture
-- Data quality validation
-- Cloud analytics engineering
-- PySpark transformations
-- Delta Lake storage
-- Analytics reporting integration
-- Production-style project structuring
+## Business use case
 
----
+The pipeline processes sales transaction data end to end into an analytics-ready gold layer supporting revenue analysis by region, product category insights, payment method analysis, daily sales trends, and customer purchasing behaviour, published through Power BI.
 
-## Future Enhancements
+## Engineering concepts demonstrated
 
-- Add Azure Data Factory orchestration
-- Implement incremental loading
-- Add unit testing with PyTest
-- Deploy using Azure DevOps CI/CD
-- Add streaming ingestion pipeline
-- Add monitoring & alerting
-- Integrate Terraform IaC
+ETL/ELT pipeline design · medallion lakehouse architecture · metadata-driven orchestration · Delta Lake merge/upsert patterns · Spark performance tuning (partitioning, Z-ORDER, broadcast joins) · data quality and lineage · CI/CD · infrastructure as code · production-style repository structuring.
 
----
+## Future enhancements
+
+- Incremental/CDC ingestion via ADF watermarking
+- Streaming ingestion path (Structured Streaming / Event Hubs)
+- Great Expectations integration alongside the custom quality framework
+- Unity Catalog governance model
 
 ## Author
 
-Korneli Pingula  
-Senior Data Engineer | Azure • AWS • Databricks • PySpark • SQL • Power BI
+**Korneli Pingula** — Senior Data Engineer | Azure • AWS • Databricks • PySpark • SQL • Power BI
 
-LinkedIn:
-linkedin.com/in/pingulakornelius
-
-GitHub:
-github.com/Kornelius99
+[LinkedIn](https://linkedin.com/in/pingulakornelius) · [GitHub](https://github.com/Kornelius99)
