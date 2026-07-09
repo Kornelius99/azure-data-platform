@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint with flake8
+        run: |
+          flake8 src tests --max-line-length=120 --extend-ignore=E203
+
+      - name: Check formatting with black
+        run: |
+          black --check src tests
+
+      - name: Run unit tests with coverage
+        run: |
+          pytest tests/ -v --cov=src --cov-report=term-missing
+
+  # In a real deployment this job would promote validated ADF pipeline JSON and
+  # Databricks notebooks to the target environment via Azure DevOps / databricks CLI.
+  deploy-placeholder:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deployment placeholder
+        run: echo "All checks passed on main - ready to promote via Azure DevOps release pipeline."
